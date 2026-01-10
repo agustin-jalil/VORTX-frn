@@ -11,24 +11,59 @@ function getGoogleAuthPath(): string {
   return process.env.NEXT_PUBLIC_GOOGLE_AUTH_PATH || "store/auth/google"
 }
 
+function getPublishableKey(): string | undefined {
+  return process.env.NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY
+}
+
 // ============================================
 // GOOGLE OAUTH (Plugin Flow with returnAccessToken)
 // ============================================
 
 /**
  * Initiates Google OAuth flow using medusa-plugin-auth
- * Redirects to backend with returnAccessToken=true to receive JWT
+ * First fetches the Google OAuth URL with proper headers, then redirects
  */
 export async function loginWithGoogle(): Promise<void> {
   const backendUrl = getBackendUrl()
   const authPath = getGoogleAuthPath()
+  const publishableKey = getPublishableKey()
 
   if (!backendUrl) {
     throw new Error("MEDUSA_BACKEND_URL is not configured")
   }
 
-  // Backend will handle OAuth and redirect back to /auth/callback with access_token
-  window.location.href = `${backendUrl}/${authPath}?returnAccessToken=true`
+  try {
+    const headers: HeadersInit = {
+      "Content-Type": "application/json",
+      "ngrok-skip-browser-warning": "69420",
+    }
+
+    if (publishableKey) {
+      headers["x-publishable-api-key"] = publishableKey
+    }
+
+    const response = await fetch(`${backendUrl}/${authPath}?returnAccessToken=true`, {
+      method: "GET",
+      headers,
+    })
+
+    if (!response.ok) {
+      const error = await response.json()
+      throw new Error(error.message || "Failed to initiate Google login")
+    }
+
+    // If backend returns a location, redirect to it
+    const data = await response.json()
+    if (data.location) {
+      window.location.href = data.location
+    } else {
+      // If no location in response, redirect to the auth endpoint directly
+      window.location.href = `${backendUrl}/${authPath}?returnAccessToken=true`
+    }
+  } catch (error) {
+    console.error("[v0] Failed to initiate Google OAuth:", error)
+    throw error
+  }
 }
 
 // ============================================

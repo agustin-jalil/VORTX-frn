@@ -65,9 +65,14 @@ function getPublishableKey(): string {
  */
 export async function getCategories(): Promise<MedusaCategory[]> {
   try {
+    const token = typeof window !== "undefined" ? localStorage.getItem("medusa_access_token") : null
     const publishableKey = getPublishableKey()
     const headers: HeadersInit = {
       "ngrok-skip-browser-warning": "69420",
+    }
+
+    if (token) {
+      headers["Authorization"] = `Bearer ${token}`
     }
 
     if (publishableKey) {
@@ -95,9 +100,14 @@ export async function getCategories(): Promise<MedusaCategory[]> {
  */
 export async function getProductsByCategory(categoryId: string): Promise<MedusaProduct[]> {
   try {
+    const token = typeof window !== "undefined" ? localStorage.getItem("medusa_access_token") : null
     const publishableKey = getPublishableKey()
     const headers: HeadersInit = {
       "ngrok-skip-browser-warning": "69420",
+    }
+
+    if (token) {
+      headers["Authorization"] = `Bearer ${token}`
     }
 
     if (publishableKey) {
@@ -125,9 +135,14 @@ export async function getProductsByCategory(categoryId: string): Promise<MedusaP
  */
 export async function getProductById(id: string): Promise<MedusaProduct | null> {
   try {
+    const token = typeof window !== "undefined" ? localStorage.getItem("medusa_access_token") : null
     const publishableKey = getPublishableKey()
     const headers: HeadersInit = {
       "ngrok-skip-browser-warning": "69420",
+    }
+
+    if (token) {
+      headers["Authorization"] = `Bearer ${token}`
     }
 
     if (publishableKey) {
@@ -155,9 +170,14 @@ export async function getProductById(id: string): Promise<MedusaProduct | null> 
  */
 export async function getAllProducts(): Promise<MedusaProduct[]> {
   try {
+    const token = typeof window !== "undefined" ? localStorage.getItem("medusa_access_token") : null
     const publishableKey = getPublishableKey()
     const headers: HeadersInit = {
       "ngrok-skip-browser-warning": "69420",
+    }
+
+    if (token) {
+      headers["Authorization"] = `Bearer ${token}`
     }
 
     if (publishableKey) {

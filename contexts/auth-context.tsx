@@ -1,83 +1,153 @@
 "use client"
 
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react"
-import { getCurrentCustomer, loginWithGoogle, logout as authLogout, saveAuthToken } from "@/lib/medusa/auth"
+import { onAuthStateChanged, signInWithPopup, signOut as firebaseSignOut, type User } from "firebase/auth"
+import { getFirebaseAuth, getGoogleProvider, isFirebaseConfigured } from "@/lib/firebase"
+import { syncFirebaseCustomer } from "@/lib/medusa/auth"
 
 interface Customer {
   id: string
   email: string
-  first_name: string
-  last_name: string
-  has_account: boolean
+  first_name?: string
+  last_name?: string
+  firebase_uid?: string
 }
 
 interface AuthContextType {
+  user: User | null
   customer: Customer | null
+  idToken: string | null
   isLoading: boolean
   isAuthenticated: boolean
-  signInWithGoogle: () => void
-  signOut: () => void
-  login: (token: string) => Promise<void>
+  signInWithGoogle: () => Promise<void>
+  signOut: () => Promise<void>
+  getIdToken: () => Promise<string | null>
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const [user, setUser] = useState<User | null>(null)
   const [customer, setCustomer] = useState<Customer | null>(null)
+  const [idToken, setIdToken] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)
 
-  const checkAuthStatus = async () => {
+  const syncWithMedusa = async (firebaseUser: User) => {
     try {
-      const customerData = await getCurrentCustomer()
-      if (customerData) {
-        setCustomer(customerData)
+      const token = await firebaseUser.getIdToken()
+      setIdToken(token)
+
+      // Sync with Medusa backend
+      const result = await syncFirebaseCustomer(token)
+      if (result.success && result.customer) {
+        setCustomer(result.customer)
+      } else {
+        // Fallback to Firebase user data if sync fails
+        setCustomer({
+          id: firebaseUser.uid,
+          email: firebaseUser.email || "",
+          first_name: firebaseUser.displayName?.split(" ")[0],
+          last_name: firebaseUser.displayName?.split(" ").slice(1).join(" "),
+          firebase_uid: firebaseUser.uid,
+        })
       }
     } catch (error) {
-      console.error("[v0] Failed to check auth status:", error)
+      console.error("Failed to sync with Medusa:", error)
+      // Fallback to Firebase user data
+      setCustomer({
+        id: firebaseUser.uid,
+        email: firebaseUser.email || "",
+        first_name: firebaseUser.displayName?.split(" ")[0],
+        last_name: firebaseUser.displayName?.split(" ").slice(1).join(" "),
+        firebase_uid: firebaseUser.uid,
+      })
+    }
+  }
+
+  useEffect(() => {
+    if (!isFirebaseConfigured()) {
+      setIsLoading(false)
+      return
+    }
+
+    const auth = getFirebaseAuth()
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      setUser(firebaseUser)
+
+      if (firebaseUser) {
+        await syncWithMedusa(firebaseUser)
+      } else {
+        setCustomer(null)
+        setIdToken(null)
+      }
+
+      setIsLoading(false)
+    })
+
+    return () => unsubscribe()
+  }, [])
+
+  const signInWithGoogle = async () => {
+    if (!isFirebaseConfigured()) {
+      throw new Error("Firebase is not configured. Please add Firebase environment variables.")
+    }
+
+    try {
+      setIsLoading(true)
+      const auth = getFirebaseAuth()
+      const googleProvider = getGoogleProvider()
+      const result = await signInWithPopup(auth, googleProvider)
+
+      if (result.user) {
+        await syncWithMedusa(result.user)
+      }
+    } catch (error) {
+      console.error("Failed to sign in with Google:", error)
+      throw error
     } finally {
       setIsLoading(false)
     }
   }
 
-  useEffect(() => {
-    checkAuthStatus()
-  }, [])
+  const signOut = async () => {
+    if (!isFirebaseConfigured()) {
+      return
+    }
 
-  const login = async (token: string) => {
     try {
-      setIsLoading(true)
-      saveAuthToken(token)
-      await checkAuthStatus()
+      const auth = getFirebaseAuth()
+      await firebaseSignOut(auth)
+      setCustomer(null)
+      setIdToken(null)
     } catch (error) {
-      console.error("[v0] Login failed:", error)
-      setIsLoading(false)
+      console.error("Failed to sign out:", error)
+      throw error
     }
   }
 
-  const signInWithGoogle = () => {
+  const getIdToken = async (): Promise<string | null> => {
+    if (!user) return null
     try {
-      loginWithGoogle()
+      const token = await user.getIdToken(true) // Force refresh
+      setIdToken(token)
+      return token
     } catch (error) {
-      console.error("[v0] Failed to initiate Google login:", error)
-      alert("Failed to start Google login. Please try again.")
+      console.error("Failed to get ID token:", error)
+      return null
     }
-  }
-
-  const signOut = () => {
-    authLogout()
-    setCustomer(null)
-    window.location.href = "/"
   }
 
   return (
     <AuthContext.Provider
       value={{
+        user,
         customer,
+        idToken,
         isLoading,
-        isAuthenticated: !!customer,
+        isAuthenticated: !!user,
         signInWithGoogle,
         signOut,
-        login,
+        getIdToken,
       }}
     >
       {children}

@@ -1,146 +1,124 @@
 /**
- * Medusa v2 Authentication Library - medusa-plugin-auth Google OAuth Flow
- * Uses returnAccessToken=true to get JWT directly from backend
+ * Medusa API helpers for authenticated requests
+ * Firebase handles authentication, this file handles Medusa API calls
  */
 
 function getBackendUrl(): string {
   return process.env.NEXT_PUBLIC_MEDUSA_BACKEND_URL || ""
 }
 
-function getGoogleAuthPath(): string {
-  return process.env.NEXT_PUBLIC_GOOGLE_AUTH_PATH || "store/auth/google"
-}
-
 function getPublishableKey(): string | undefined {
   return process.env.NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY
 }
 
-// ============================================
-// GOOGLE OAUTH (Plugin Flow with returnAccessToken)
-// ============================================
-
 /**
- * Initiates Google OAuth flow using medusa-plugin-auth
- * First fetches the Google OAuth URL with proper headers, then redirects
+ * Get headers for Medusa API requests
  */
-export async function loginWithGoogle(): Promise<void> {
-  const backendUrl = getBackendUrl()
-  const authPath = getGoogleAuthPath()
+export function getMedusaHeaders(authToken?: string): HeadersInit {
+  const headers: HeadersInit = {
+    "Content-Type": "application/json",
+    "ngrok-skip-browser-warning": "69420",
+  }
+
   const publishableKey = getPublishableKey()
-
-  if (!backendUrl) {
-    throw new Error("MEDUSA_BACKEND_URL is not configured")
+  if (publishableKey) {
+    headers["x-publishable-api-key"] = publishableKey
   }
 
-  try {
-    const headers: HeadersInit = {
-      "Content-Type": "application/json",
-      "ngrok-skip-browser-warning": "69420",
-    }
-
-    if (publishableKey) {
-      headers["x-publishable-api-key"] = publishableKey
-    }
-
-    const response = await fetch(`${backendUrl}/${authPath}?returnAccessToken=true`, {
-      method: "GET",
-      headers,
-    })
-
-    if (!response.ok) {
-      const error = await response.json()
-      throw new Error(error.message || "Failed to initiate Google login")
-    }
-
-    // If backend returns a location, redirect to it
-    const data = await response.json()
-    if (data.location) {
-      window.location.href = data.location
-    } else {
-      // If no location in response, redirect to the auth endpoint directly
-      window.location.href = `${backendUrl}/${authPath}?returnAccessToken=true`
-    }
-  } catch (error) {
-    console.error("[v0] Failed to initiate Google OAuth:", error)
-    throw error
-  }
-}
-
-// ============================================
-// TOKEN MANAGEMENT
-// ============================================
-
-const AUTH_TOKEN_KEY = "medusa_access_token"
-
-export function saveAuthToken(token: string): void {
-  if (typeof window !== "undefined") {
-    localStorage.setItem(AUTH_TOKEN_KEY, token)
-  }
-}
-
-export function getAuthToken(): string | null {
-  if (typeof window === "undefined") return null
-  return localStorage.getItem(AUTH_TOKEN_KEY)
-}
-
-export function clearAuthToken(): void {
-  if (typeof window !== "undefined") {
-    localStorage.removeItem(AUTH_TOKEN_KEY)
-  }
-}
-
-// ============================================
-// CUSTOMER API
-// ============================================
-
-/**
- * Fetches the current authenticated customer using the JWT token
- */
-export async function getCurrentCustomer() {
-  const backendUrl = getBackendUrl()
-  const token = getAuthToken()
-
-  if (!backendUrl) {
-    throw new Error("MEDUSA_BACKEND_URL is not configured")
+  if (authToken) {
+    headers["Authorization"] = `Bearer ${authToken}`
   }
 
-  if (!token) {
-    return null
-  }
-
-  try {
-    const response = await fetch(`${backendUrl}/store/customers/me`, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "ngrok-skip-browser-warning": "69420",
-      },
-    })
-
-    if (!response.ok) {
-      if (response.status === 401) {
-        clearAuthToken()
-      }
-      return null
-    }
-
-    const data = await response.json()
-    return data.customer
-  } catch (error) {
-    console.error("[v0] Failed to fetch current customer:", error)
-    return null
-  }
+  return headers
 }
 
 /**
- * Validates if Medusa auth configuration is available
+ * Validates if Medusa configuration is available
  */
-export function validateAuthConfig(): boolean {
+export function validateMedusaConfig(): boolean {
   return !!getBackendUrl()
 }
 
-/**
- * Logs out the current customer by clearing the token
- */
-export function logout(): void {
-  clearAuthToken()
+export async function verifyFirebaseToken(idToken: string): Promise<{
+  success: boolean
+  user?: {
+    uid: string
+    email: string
+    emailVerified: boolean
+    displayName?: string
+    photoURL?: string
+  }
+  error?: string
+}> {
+  const backendUrl = getBackendUrl()
+  if (!backendUrl) {
+    throw new Error("Medusa backend URL is not configured")
+  }
+
+  const response = await fetch(`${backendUrl}/store/firebase-auth/verify`, {
+    method: "POST",
+    headers: getMedusaHeaders(),
+    body: JSON.stringify({ idToken }),
+  })
+
+  if (!response.ok) {
+    const error = await response.json()
+    throw new Error(error.message || "Failed to verify token")
+  }
+
+  return response.json()
 }
+
+export async function syncFirebaseCustomer(idToken: string): Promise<{
+  success: boolean
+  customer?: {
+    id: string
+    email: string
+    first_name?: string
+    last_name?: string
+    firebase_uid: string
+  }
+  error?: string
+}> {
+  const backendUrl = getBackendUrl()
+  if (!backendUrl) {
+    throw new Error("Medusa backend URL is not configured")
+  }
+
+  const response = await fetch(`${backendUrl}/store/firebase-customer/sync`, {
+    method: "POST",
+    headers: getMedusaHeaders(),
+    body: JSON.stringify({ idToken }),
+  })
+
+  if (!response.ok) {
+    const error = await response.json()
+    throw new Error(error.message || "Failed to sync customer")
+  }
+
+  return response.json()
+}
+
+export async function fetchProtectedRoute<T>(endpoint: string, idToken: string, options: RequestInit = {}): Promise<T> {
+  const backendUrl = getBackendUrl()
+  if (!backendUrl) {
+    throw new Error("Medusa backend URL is not configured")
+  }
+
+  const response = await fetch(`${backendUrl}${endpoint}`, {
+    ...options,
+    headers: {
+      ...getMedusaHeaders(idToken),
+      ...(options.headers || {}),
+    },
+  })
+
+  if (!response.ok) {
+    const error = await response.json()
+    throw new Error(error.message || "Request failed")
+  }
+
+  return response.json()
+}
+
+export { getBackendUrl, getPublishableKey }

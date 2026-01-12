@@ -2,7 +2,7 @@
 
 import { X } from "lucide-react"
 import { useEffect, useState } from "react"
-import { loginWithGoogle } from "@/lib/medusa/auth"
+import { useAuth } from "@/contexts/auth-context"
 
 interface LoginModalProps {
   isOpen: boolean
@@ -11,6 +11,8 @@ interface LoginModalProps {
 
 export default function LoginModal({ isOpen, onClose }: LoginModalProps) {
   const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const { signInWithGoogle } = useAuth()
 
   useEffect(() => {
     if (isOpen) {
@@ -22,6 +24,20 @@ export default function LoginModal({ isOpen, onClose }: LoginModalProps) {
       document.body.style.overflow = "unset"
     }
   }, [isOpen])
+
+  const handleGoogleSignIn = async () => {
+    try {
+      setIsLoading(true)
+      setError(null)
+      await signInWithGoogle()
+      onClose() // Close modal on successful login
+    } catch (err) {
+      console.error("Google sign in error:", err)
+      setError("Failed to sign in with Google. Please try again.")
+    } finally {
+      setIsLoading(false)
+    }
+  }
 
   if (!isOpen) return null
 
@@ -52,28 +68,25 @@ export default function LoginModal({ isOpen, onClose }: LoginModalProps) {
           <p className="text-sm text-gray-400">Access your account and saved items</p>
         </div>
 
+        {/* Error message */}
+        {error && (
+          <div className="mx-8 mt-6 p-3 bg-red-500/10 border border-red-500/20 rounded-lg">
+            <p className="text-sm text-red-400 text-center">{error}</p>
+          </div>
+        )}
+
         {/* Sign in options */}
         <div className="p-8 space-y-4">
           {/* Google Sign In */}
           <button
-            onClick={() => {
-              try {
-                setIsLoading(true)
-                loginWithGoogle()
-                // Will redirect to backend, which will redirect to Google, then back to /auth/callback
-              } catch (error) {
-                console.error("[v0] Failed to start Google login:", error)
-                alert("Failed to start Google login. Please try again.")
-                setIsLoading(false)
-              }
-            }}
+            onClick={handleGoogleSignIn}
             disabled={isLoading}
             className="w-full flex items-center justify-center gap-3 px-6 py-3 bg-white hover:bg-gray-100 text-black font-medium rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isLoading ? (
               <>
                 <div className="w-5 h-5 border-2 border-gray-300 border-t-black rounded-full animate-spin" />
-                <span>Redirecting to Google...</span>
+                <span>Signing in...</span>
               </>
             ) : (
               <>

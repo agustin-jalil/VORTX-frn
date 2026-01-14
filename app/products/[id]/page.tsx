@@ -4,6 +4,7 @@ import { ProductInfo } from "@/components/product/product-info"
 import { WhatsInBox } from "@/components/product/whats-in-box"
 import { IncludedServices } from "@/components/product/included-services"
 import { RelatedProducts } from "@/components/product/related-products"
+import { WishlistButton } from "@/components/product/wishlist-button"
 import { getProductById, getAllProducts } from "@/lib/medusa"
 
 interface ProductPageProps {
@@ -27,10 +28,11 @@ export default async function ProductPage({ params }: ProductPageProps) {
   return (
     <main className="min-h-screen">
       <div className="bg-muted py-2">
-        <div className="container mx-auto px-4">
+        <div className="container mx-auto px-4 flex items-center justify-between">
           <p className="text-sm text-muted-foreground">
             <span className="font-semibold">Product ID:</span> {product.id}
           </p>
+          <WishlistButton productId={product.id} variantId={variant?.id} />
         </div>
       </div>
 

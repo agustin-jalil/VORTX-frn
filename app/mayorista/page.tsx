@@ -5,10 +5,9 @@ import { Search, Plus, ChevronLeft, ChevronRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { getAllProducts, getCategories, type MedusaProduct, type MedusaCategory } from "@/lib/medusa"
 import ProductCard from "@/components/mayorista/product-card"
 import ProductEditPanel from "@/components/mayorista/product-edit-panel"
-import { getAllProducts, getCategories } from "@/lib/medusa"
-import { MedusaCategory, MedusaProduct } from "@/types/medusa"
 
 function MayoristaContent() {
   const [products, setProducts] = useState<MedusaProduct[]>([])

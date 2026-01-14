@@ -88,21 +88,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const signInWithGoogle = async () => {
+    console.log("[v0] Starting Firebase Google sign in")
+
     if (!isFirebaseConfigured()) {
+      console.error("[v0] Firebase not configured")
       throw new Error("Firebase is not configured. Please add Firebase environment variables.")
     }
 
     try {
       setIsLoading(true)
+      console.log("[v0] Getting Firebase auth instance")
       const auth = getFirebaseAuth()
       const googleProvider = getGoogleProvider()
+
+      console.log("[v0] Opening Google popup...")
       const result = await signInWithPopup(auth, googleProvider)
+      console.log("[v0] Google sign in successful, user:", result.user.email)
 
       if (result.user) {
+        console.log("[v0] Syncing with Medusa...")
         await syncWithMedusa(result.user)
+        console.log("[v0] Sync complete")
       }
     } catch (error) {
-      console.error("Failed to sign in with Google:", error)
+      console.error("[v0] Firebase sign in error:", error)
       throw error
     } finally {
       setIsLoading(false)

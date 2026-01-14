@@ -1,5 +1,51 @@
-import type { ShippingAdapter, ShipmentDetails, CarrierQuote } from "@/types/shipping"
-import { selectCarrier } from "./carrier-selector"
+export * from "../shipping/shipping-service"
+export * from "../shipping/carrier-selector"
+
+export interface ShipmentDetails {
+  weight: number // kg
+  value: number // currency
+  origin: string
+  destination: string
+  dimensions?: {
+    length: number
+    width: number
+    height: number
+  }
+}
+
+export interface CarrierQuote {
+  carrier: "envia" | "welivery" | "correo"
+  price: number
+  estimatedDays: number
+  service: string
+}
+
+export interface ShippingAdapter {
+  name: string
+  calculateShipping(details: ShipmentDetails): Promise<CarrierQuote>
+  createShipment(details: ShipmentDetails): Promise<{ trackingNumber: string; label: string }>
+  getTracking(trackingNumber: string): Promise<any>
+}
+
+export function selectCarrier(weight: number, value: number): "envia" | "welivery" | "correo" {
+  // Envia: Light packages < 5kg, any value
+  if (weight < 5) {
+    return "envia"
+  }
+
+  // Welivery: Medium packages 5-20kg, value $50-$2000
+  if (weight >= 5 && weight <= 20 && value >= 50 && value <= 2000) {
+    return "welivery"
+  }
+
+  // Correo: Heavy packages > 20kg or high value > $2000
+  if (weight > 20 || value > 2000) {
+    return "correo"
+  }
+
+  // Default to welivery for edge cases
+  return "welivery"
+}
 
 export class ShippingService {
   private adapters: Map<string, ShippingAdapter> = new Map()

@@ -6,12 +6,13 @@ import ShoppingBagModal from "./shopping-bag-modal"
 import LoginModal from "./auth/login-modal"
 import { useAuth } from "@/contexts/auth-context"
 import { getCategories, type MedusaCategory } from "@/lib/medusa"
+import { User, Heart, Package } from "lucide-react"
 
 export default function Header() {
   const [isCartOpen, setIsCartOpen] = useState(false)
   const [isLoginOpen, setIsLoginOpen] = useState(false)
   const [categories, setCategories] = useState<MedusaCategory[]>([])
-  const { signInWithGoogle } = useAuth()
+  const { signInWithGoogle, isAuthenticated } = useAuth()
 
   useEffect(() => {
     getCategories().then(setCategories)
@@ -61,6 +62,20 @@ export default function Header() {
                   />
                 </svg>
               </button>
+
+              {isAuthenticated && (
+                <>
+                  <Link href="/favorites" className="p-2 hover:bg-gray-900 rounded-full transition">
+                    <Heart className="w-5 h-5 text-gray-300" />
+                  </Link>
+                  <Link href="/orders" className="p-2 hover:bg-gray-900 rounded-full transition">
+                    <Package className="w-5 h-5 text-gray-300" />
+                  </Link>
+                  <Link href="/account" className="p-2 hover:bg-gray-900 rounded-full transition">
+                    <User className="w-5 h-5 text-gray-300" />
+                  </Link>
+                </>
+              )}
 
               <div className="relative">
                 <button

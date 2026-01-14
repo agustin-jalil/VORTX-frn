@@ -26,13 +26,16 @@ export default function LoginModal({ isOpen, onClose }: LoginModalProps) {
   }, [isOpen])
 
   const handleGoogleSignIn = async () => {
+    console.log("[v0] Login button clicked")
     try {
       setIsLoading(true)
       setError(null)
+      console.log("[v0] Calling signInWithGoogle from context")
       await signInWithGoogle()
+      console.log("[v0] Sign in successful, closing modal")
       onClose() // Close modal on successful login
     } catch (err) {
-      console.error("Google sign in error:", err)
+      console.error("[v0] Google sign in error in modal:", err)
       setError("Failed to sign in with Google. Please try again.")
     } finally {
       setIsLoading(false)

@@ -54,6 +54,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
               features: [],
               whatsInBox: [],
             }}
+            variantId={variant?.id}
           />
         </div>
       </section>

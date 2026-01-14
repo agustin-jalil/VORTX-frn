@@ -4,18 +4,24 @@ import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
-import { Check } from "lucide-react"
+import { Check, Heart, Loader2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import type { ColorOption, Product } from "@/types/product"
 import { useRouter } from "next/navigation"
+import { useAuth } from "@/contexts/auth-context"
+import { addToWishlist } from "@/lib/medusa/wishlist"
 
 interface ProductInfoProps {
   product: Product
+  variantId?: string
 }
 
-export function ProductInfo({ product }: ProductInfoProps) {
+export function ProductInfo({ product, variantId }: ProductInfoProps) {
   const [selectedColor, setSelectedColor] = useState<ColorOption | undefined>(product.colors?.[0])
+  const [isAddingToWishlist, setIsAddingToWishlist] = useState(false)
+  const [addedToWishlist, setAddedToWishlist] = useState(false)
   const router = useRouter()
+  const { user, getIdToken } = useAuth()
 
   const handleBuyNow = () => {
     const checkoutData = {
@@ -31,6 +37,33 @@ export function ProductInfo({ product }: ProductInfoProps) {
     })
 
     router.push(`/checkout?${params.toString()}`)
+  }
+
+  const handleAddToWishlist = async () => {
+    if (!user) {
+      alert("Debes iniciar sesión para guardar en favoritos")
+      return
+    }
+
+    if (!variantId) {
+      alert("No se puede agregar este producto a favoritos")
+      return
+    }
+
+    setIsAddingToWishlist(true)
+    try {
+      const token = await getIdToken()
+      if (token) {
+        await addToWishlist(token, variantId)
+        setAddedToWishlist(true)
+        setTimeout(() => setAddedToWishlist(false), 3000)
+      }
+    } catch (error) {
+      console.error("Error adding to wishlist:", error)
+      alert("Error al agregar a favoritos")
+    } finally {
+      setIsAddingToWishlist(false)
+    }
   }
 
   return (
@@ -108,8 +141,23 @@ export function ProductInfo({ product }: ProductInfoProps) {
       )}
 
       <div className="flex gap-3 pt-4">
-        <Button size="lg" className="flex-1">
-          Add to Cart
+        <Button size="lg" className="flex-1" onClick={handleAddToWishlist} disabled={isAddingToWishlist}>
+          {isAddingToWishlist ? (
+            <>
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              Guardando...
+            </>
+          ) : addedToWishlist ? (
+            <>
+              <Check className="w-4 h-4 mr-2" />
+              Guardado en Favoritos
+            </>
+          ) : (
+            <>
+              <Heart className="w-4 h-4 mr-2" />
+              Guardar en Favoritos
+            </>
+          )}
         </Button>
         <Button size="lg" variant="outline" className="flex-1 bg-transparent" onClick={handleBuyNow}>
           Buy Now

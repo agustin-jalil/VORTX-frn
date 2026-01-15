@@ -37,12 +37,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const token = await firebaseUser.getIdToken()
       setIdToken(token)
 
-      // Sync with Medusa backend
+      console.log("ESTE ES EL TOKEN AUTH DE GOOGLE", token)
+
       const result = await syncFirebaseCustomer(token)
       if (result.success && result.customer) {
         setCustomer(result.customer)
       } else {
-        // Fallback to Firebase user data if sync fails
         setCustomer({
           id: firebaseUser.uid,
           email: firebaseUser.email || "",
@@ -53,7 +53,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     } catch (error) {
       console.error("Failed to sync with Medusa:", error)
-      // Fallback to Firebase user data
       setCustomer({
         id: firebaseUser.uid,
         email: firebaseUser.email || "",
@@ -71,6 +70,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     const auth = getFirebaseAuth()
+    if (!auth) {
+      setIsLoading(false)
+      return
+    }
+
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       setUser(firebaseUser)
 
@@ -88,30 +92,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const signInWithGoogle = async () => {
-    console.log("[v0] Starting Firebase Google sign in")
-
     if (!isFirebaseConfigured()) {
-      console.error("[v0] Firebase not configured")
       throw new Error("Firebase is not configured. Please add Firebase environment variables.")
+    }
+
+    const auth = getFirebaseAuth()
+    const provider = getGoogleProvider()
+
+    if (!auth || !provider) {
+      throw new Error("Firebase Auth is not initialized. Please check your configuration.")
     }
 
     try {
       setIsLoading(true)
-      console.log("[v0] Getting Firebase auth instance")
-      const auth = getFirebaseAuth()
-      const googleProvider = getGoogleProvider()
-
-      console.log("[v0] Opening Google popup...")
-      const result = await signInWithPopup(auth, googleProvider)
-      console.log("[v0] Google sign in successful, user:", result.user.email)
+      const result = await signInWithPopup(auth, provider)
 
       if (result.user) {
-        console.log("[v0] Syncing with Medusa...")
         await syncWithMedusa(result.user)
-        console.log("[v0] Sync complete")
       }
     } catch (error) {
-      console.error("[v0] Firebase sign in error:", error)
+      console.error("Firebase sign in error:", error)
       throw error
     } finally {
       setIsLoading(false)
@@ -119,12 +119,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   const signOut = async () => {
-    if (!isFirebaseConfigured()) {
-      return
-    }
+    const auth = getFirebaseAuth()
+    if (!auth) return
 
     try {
-      const auth = getFirebaseAuth()
       await firebaseSignOut(auth)
       setCustomer(null)
       setIdToken(null)
@@ -137,9 +135,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const getIdToken = async (): Promise<string | null> => {
     if (!user) return null
     try {
-      const token = await user.getIdToken(true) // Force refresh
+      const token = await user.getIdToken(true)
       setIdToken(token)
-      console.log("EL TOKEN DE LOGUEO",token)
       return token
     } catch (error) {
       console.error("Failed to get ID token:", error)

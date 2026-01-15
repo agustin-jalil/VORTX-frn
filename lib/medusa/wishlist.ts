@@ -56,6 +56,8 @@ export async function addToWishlist(
   variantId?: string,
 ): Promise<WishlistItem | null> {
   try {
+    console.log("[v0] addToWishlist called with:", { productId, variantId })
+
     const response = await fetch(`${getBackendUrl()}/store/customers/me/wishlist`, {
       method: "POST",
       headers: getHeaders(idToken),
@@ -65,10 +67,17 @@ export async function addToWishlist(
       }),
     })
 
-    if (!response.ok) return null
+    console.log("[v0] Wishlist API response status:", response.status)
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      console.log("[v0] Wishlist API error:", errorText)
+      return null
+    }
 
     const data = await response.json()
-    return data.item || data.wishlist_item
+    console.log("[v0] Wishlist API success:", data)
+    return data.item || data.wishlist_item || data
   } catch (error) {
     console.error("Error adding to wishlist:", error)
     return null

@@ -45,7 +45,7 @@ export function ProductInfo({ product, variantId }: ProductInfoProps) {
       return
     }
 
-    if (!variantId) {
+    if (!product.id) {
       alert("No se puede agregar este producto a favoritos")
       return
     }
@@ -54,9 +54,15 @@ export function ProductInfo({ product, variantId }: ProductInfoProps) {
     try {
       const token = await getIdToken()
       if (token) {
-        await addToWishlist(token, variantId)
-        setAddedToWishlist(true)
-        setTimeout(() => setAddedToWishlist(false), 3000)
+        console.log("[v0] Adding to wishlist - productId:", product.id, "variantId:", variantId)
+        const result = await addToWishlist(token, product.id, variantId)
+        console.log("[v0] Wishlist result:", result)
+        if (result) {
+          setAddedToWishlist(true)
+          setTimeout(() => setAddedToWishlist(false), 3000)
+        } else {
+          alert("Error al agregar a favoritos")
+        }
       }
     } catch (error) {
       console.error("Error adding to wishlist:", error)

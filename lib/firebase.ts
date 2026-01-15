@@ -1,4 +1,4 @@
-import { initializeApp, getApps, type FirebaseApp } from "firebase/app"
+import { initializeApp, getApps, getApp, type FirebaseApp } from "firebase/app"
 import { getAuth, GoogleAuthProvider, type Auth } from "firebase/auth"
 
 // Firebase configuration using environment variables
@@ -12,37 +12,49 @@ const firebaseConfig = {
   measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID,
 }
 
-let app: FirebaseApp | null = null
-let auth: Auth | null = null
+function initializeFirebaseApp(): FirebaseApp | null {
+  // Check if Firebase is configured
+  if (!firebaseConfig.apiKey || !firebaseConfig.authDomain || !firebaseConfig.projectId) {
+    return null
+  }
+
+  try {
+    // Check if app already exists
+    if (getApps().length > 0) {
+      return getApp()
+    }
+    // Initialize new app
+    return initializeApp(firebaseConfig)
+  } catch (error) {
+    console.error("Failed to initialize Firebase:", error)
+    return null
+  }
+}
+
+// Initialize app on module load (client-side only)
+let firebaseApp: FirebaseApp | null = null
+let firebaseAuth: Auth | null = null
 let googleProvider: GoogleAuthProvider | null = null
 
-function getFirebaseApp(): FirebaseApp {
-  if (!app) {
-    // Check if API key exists
-    if (!firebaseConfig.apiKey) {
-      throw new Error(
-        "Firebase API key is not configured. Please add NEXT_PUBLIC_FIREBASE_API_KEY to your environment variables.",
-      )
-    }
-    app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0]
-  }
-  return app
-}
-
-export function getFirebaseAuth(): Auth {
-  if (!auth) {
-    const firebaseApp = getFirebaseApp()
-    auth = getAuth(firebaseApp)
-  }
-  return auth
-}
-
-export function getGoogleProvider(): GoogleAuthProvider {
-  if (!googleProvider) {
+if (typeof window !== "undefined") {
+  firebaseApp = initializeFirebaseApp()
+  if (firebaseApp) {
+    firebaseAuth = getAuth(firebaseApp)
     googleProvider = new GoogleAuthProvider()
     googleProvider.addScope("profile")
     googleProvider.addScope("email")
   }
+}
+
+export function getFirebaseApp(): FirebaseApp | null {
+  return firebaseApp
+}
+
+export function getFirebaseAuth(): Auth | null {
+  return firebaseAuth
+}
+
+export function getGoogleProvider(): GoogleAuthProvider | null {
   return googleProvider
 }
 

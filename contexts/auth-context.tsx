@@ -139,6 +139,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const token = await user.getIdToken(true) // Force refresh
       setIdToken(token)
+      console.log("EL TOKEN DE LOGUEO",token)
       return token
     } catch (error) {
       console.error("Failed to get ID token:", error)
